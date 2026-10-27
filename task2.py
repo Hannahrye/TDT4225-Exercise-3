@@ -9,6 +9,7 @@ since creating all pairs within a list is much simpler in Python than in a pipel
 from collections import Counter
 from itertools import combinations
 from pprint import pprint
+from pathlib import Path
 
 from DbConnector import DbConnector
 
@@ -57,9 +58,21 @@ def main():
     connection = DbConnector()
     try:
         result = task2(connection.db)
+
         print(f"Task 2: {len(result):,} actor pairs have co-starred in >= 3 movies.")
         print("Top 20 by number of co-appearances:\n")
         pprint(result[:20], sort_dicts=False)
+
+        # Save all pairs in a results folder next to this script
+        output_dir = Path(__file__).resolve().parent / "results"
+        output_dir.mkdir(exist_ok=True)
+        output_file = output_dir / "task2_results.txt"
+
+        with output_file.open("w", encoding="utf-8") as file:
+            pprint(result, stream=file, sort_dicts=False)
+
+        print(f"\nAll {len(result):,} pairs saved to: {output_file}")
+
     finally:
         connection.close_connection()
 
