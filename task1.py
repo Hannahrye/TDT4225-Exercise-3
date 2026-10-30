@@ -16,37 +16,61 @@ from DbConnector import DbConnector
 
 def task1(db):
     pipeline = [
-        # Only movies with known revenue and at least one director
-        {"$match": {"revenue": {"$ne": None}, "directors.0": {"$exists": True}}},
-        # One document per (movie, director), so co-directed movies count for each director
+        {"$match": {"directors.0": {"$exists": True}}},
         {"$unwind": "$directors"},
-        # Group on director id, since different people can share a name
         {"$group": {
             "_id": "$directors.id",
             "director": {"$first": "$directors.name"},
             "movie_count": {"$sum": 1},
             "revenues": {"$push": "$revenue"},
-            "mean_vote_average": {"$avg": "$vote_average"},  # $avg ignores null
+            "mean_vote_average": {"$avg": "$vote_average"},
         }},
         {"$match": {"movie_count": {"$gte": 5}}},
     ]
-    directors = list(db.movies.aggregate(pipeline))
 
-    # Exact median computed in Python (MongoDB's $median is approximate)
-    for d in directors:
-        d["median_revenue"] = median(d.pop("revenues"))
-        d["mean_vote_average"] = round(d["mean_vote_average"], 2)
+    directors = []
+
+    for d in db.movies.aggregate(pipeline):
+        # Unknown revenue is excluded from the median.
+        known_revenues = [
+            value for value in d.pop("revenues")
+            if value is not None
+        ]
+
+        # A director without known revenue cannot be ranked.
+        if not known_revenues:
+            continue
+
+        d["movies_with_known_revenue"] = len(known_revenues)
+        d["median_revenue"] = median(known_revenues)
+
+        average = d["mean_vote_average"]
+        d["mean_vote_average"] = (
+            round(average, 2) if average is not None else None
+        )
+
+        directors.append(d)
+
+    # Use person ID to make ordering consistent when medians are equal.
+    directors.sort(
+        key=lambda d: (-d["median_revenue"], d["_id"])
+    )
+
+    result = directors[:10]
+    for d in result:
         del d["_id"]
 
-    directors.sort(key=lambda d: d["median_revenue"], reverse=True)
-    return directors[:10]
+    return result
 
 
 def main():
     connection = DbConnector()
     try:
         result = task1(connection.db)
-        print("Task 1: Top 10 directors (>= 5 movies with known revenue) by median revenue\n")
+        print(
+            "Task 1: Top 10 directors (>= 5 movies total) "
+            "by median known revenue\n"
+        )
         pprint(result, sort_dicts=False)
     finally:
         connection.close_connection()
