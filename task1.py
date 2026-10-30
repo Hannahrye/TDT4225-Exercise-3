@@ -2,10 +2,6 @@
 Task 1: Considering only crew with job = Director, which 10 directors with >= 5 movies
 have the highest median revenue? Also report each director's movie count and mean vote_average.
 
-Choice: only movies with known revenue are used. revenue is stored as null when it is
-unknown (0 or < 1000 USD in the CSV), so a director's median and movie count are based on
-the movies where revenue is actually known. Otherwise a director with 5 movies but only one
-known revenue would get a "median" based on a single movie.
 """
 
 from pprint import pprint
